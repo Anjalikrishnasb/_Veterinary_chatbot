@@ -67,7 +67,8 @@ Answer:
 def user_input(user_question):
     greetings = ["hello", "hai", "hi", "hey", "good morning", "good afternoon", "good evening"]
     if user_question.lower() in greetings:
-        return get_greeting()
+        st.write("Reply:", get_greeting())
+        return
 
     embeddings=GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     new_db=FAISS.load_local("faiss_index",embeddings,allow_dangerous_deserialization=True)
@@ -177,18 +178,22 @@ def main():
         submit_button = st.form_submit_button(label='Submit')
         st.markdown('</div>', unsafe_allow_html=True)
         if submit_button and user_question:
-            response = user_input(user_question)
-            st.write("Reply:", response)       
-        
-            if "chat_history" not in st.session_state:
+            if user_question.lower() in ["hello", "hi", "hey"]:
+                st.write(get_greeting())
+            else:
+                user_input(user_question)
+                if "chat_history" not in st.session_state:
                     st.session_state["chat_history"] = []
-                    st.session_state["chat_history"].append({"question": user_question, "answer": st.session_state.get("response", "")})
+                st.session_state["chat_history"].append({"question": user_question, "answer": st.session_state.get("response", "")})
 
     st.sidebar.write("**Chat History**")
     if "chat_history" in st.session_state:
         for chat in st.session_state["chat_history"]:
             st.sidebar.write(f"**User**: {chat['question']}")
             st.sidebar.write(f"**Bot**: {chat['answer']}")
+
+        if submit_button and user_question:
+            user_input(user_question)
 
 if __name__=="__main__":
     main()
