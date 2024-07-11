@@ -17,7 +17,6 @@ from datetime import datetime
 import random
 import pandas as pd
 
-
 from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
 load_dotenv()
 
@@ -58,29 +57,36 @@ Answer:
 
     model=ChatGoogleGenerativeAI(model="gemini-pro",temperature=0.3)
 
-    prompt= PromptTemplate(template=prompt_template,input_variables={"context","question"})
+    prompt= PromptTemplate(template=prompt_template,input_variables=["context","question"])
 
     chain=load_qa_chain(model,chain_type="stuff",prompt=prompt)
     
     return chain
 
-def user_input(user_question):
-    greetings = ["hello", "hai", "hi", "hey", "good morning", "good afternoon", "good evening"]
-    if user_question.lower() in greetings:
-        st.write("Reply:", get_greeting())
-        return
+import logging
 
-    embeddings=GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    new_db=FAISS.load_local("faiss_index",embeddings,allow_dangerous_deserialization=True)
-    docs=new_db.similarity_search(user_question)
-    chain=get_conversational_chain()
-    response=chain(
+logging.basicConfig(filename='chatbot.log', level=logging.ERROR)
+def user_input(user_question):
+    try:
+        greetings = ["hello", "hai", "hi", "hey", "good morning", "good afternoon", "good evening"]
+        if user_question.lower() in greetings:
+           return get_greeting()
+
+        embeddings=GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        new_db=FAISS.load_local("faiss_index",embeddings,allow_dangerous_deserialization=True)
+        docs=new_db.similarity_search(user_question)
+        chain=get_conversational_chain()
+        response=chain(
         {"input_documents":docs,"question":user_question}
         ,return_only_outputs=True
-    )
-    print(response)
-    st.write("Reply:",response["output_text"])
- 
+         )
+        if not response or not response.get("output_text"):
+            return "Apologies, I am unable to find the answer. Can you please rephrase your question?"
+
+        return response["output_text"]
+    except Exception as e:
+        logging.error(f"Error in user_input function: {e}")
+        return "Sorry, something went wrong. Please try again later."
 
 def get_greeting():
     current_hour = datetime.now().hour
@@ -178,13 +184,12 @@ def main():
         submit_button = st.form_submit_button(label='Submit')
         st.markdown('</div>', unsafe_allow_html=True)
         if submit_button and user_question:
-            if user_question.lower() in ["hello", "hi", "hey"]:
-                st.write(get_greeting())
-            else:
-                user_input(user_question)
-                if "chat_history" not in st.session_state:
-                    st.session_state["chat_history"] = []
-                st.session_state["chat_history"].append({"question": user_question, "answer": st.session_state.get("response", "")})
+            response = user_input(user_question)
+            st.write("Reply:", response)
+            
+            if "chat_history" not in st.session_state:
+                st.session_state["chat_history"] = []
+            st.session_state["chat_history"].append({"question": user_question, "answer": response})
 
     st.sidebar.write("**Chat History**")
     if "chat_history" in st.session_state:
@@ -192,8 +197,7 @@ def main():
             st.sidebar.write(f"**User**: {chat['question']}")
             st.sidebar.write(f"**Bot**: {chat['answer']}")
 
-        if submit_button and user_question:
-            user_input(user_question)
+    
 
 if __name__=="__main__":
     main()
