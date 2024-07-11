@@ -14,3 +14,10 @@
 '''bash
 pip install -r requirements.txt
 '''
+'''bash
+pip install -U langchain-community
+'''
+
+'''bash
+streamlit run app.py
+'''
