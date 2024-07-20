@@ -209,6 +209,15 @@ def main():
         max-width: 1200px;
         margin: 0 auto;
     }
+    .fixed-top {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background-color: white;
+        z-index: 1000;
+        padding: 1rem;
+    }
     .header {
         display: flex;
         align-items: center;
@@ -238,6 +247,7 @@ def main():
     .chat-container {
         display: flex;
         gap: 2rem;
+                
     }
     .chat-main {
         flex: 2;
@@ -309,7 +319,7 @@ def main():
     
     col1, col2,col3 = st.columns([6,1,1])
     with col1:
-        user_question = st.text_input("Ask something", key="user_input",placeholder=get_greeting())
+        user_question = st.text_input("Hi,Ask me anything related to pet care!", key="user_input",placeholder=get_greeting())
        
     with col2:
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
@@ -323,7 +333,7 @@ def main():
         if recognized_text:
             user_question = recognized_text
             st.session_state.user_input_text = user_question  # Update the user question with recognized text
-            st.text_input("Hi, I'm your friendly veterinary assistant. Ask me anything related to pet care!", value=user_question, key="recognized_input", placeholder=get_greeting())
+            st.text_input("", value=user_question, key="recognized_input", placeholder=get_greeting())
             if user_question:
                 st.markdown("<h4>Response:</h4>", unsafe_allow_html=True)
                 response_placeholder = st.empty()
@@ -339,8 +349,8 @@ def main():
 
                 if "chat_history" not in st.session_state:
                     st.session_state.chat_history = []
-                    st.session_state.chat_history.append({"question": user_question, "answer": full_response.strip()})
-                    st.session_state.user_question = ""
+                st.session_state.chat_history.append({"question": user_question, "answer": full_response.strip()})
+                st.session_state.user_question = ""
     if send_button:
         if user_question:
             st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
