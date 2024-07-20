@@ -106,7 +106,6 @@ def user_input(user_question):
             yield from "Apologies, I am unable to find the answer. Can you please rephrase your question?".split()
 
         else:
-            # Yield words one by one
             formatted_response = format_response(response["output_text"])
             for word in formatted_response.split():
                 yield word
@@ -153,10 +152,10 @@ def speech_to_text():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         warning_placeholder = st.empty()  # Create a placeholder for the warning
-        warning_placeholder.warning("Listening... (Will stop after 5 seconds of silence)")
+        warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
         recognizer.adjust_for_ambient_noise(source, duration=1)
         try:
-           audio = recognizer.listen(source, timeout=5)
+           audio = recognizer.listen(source, timeout=3)
            text = recognizer.recognize_google(audio).lower()
            warning_placeholder.empty()
            return text
@@ -233,9 +232,6 @@ def main():
     .health-tip h3 {
         color: white; /* Different pink shade for the heading text */
     }
-    .header h3{
-        color: #FFC0CB;
-    } 
     .header h4{
         color: #50C878;
     }   
