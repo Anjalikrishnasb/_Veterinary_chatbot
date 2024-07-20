@@ -377,8 +377,8 @@ def main():
     st.sidebar.title("Chat History")
     if "chat_history" in st.session_state:
         for chat in st.session_state.chat_history:
-            st.sidebar.markdown(f"**User**: {chat['question']}")
-            st.sidebar.markdown(f"**Bot**: {chat['answer']}")
+            st.sidebar.markdown(f"**🐰**: {chat['question']}")
+            st.sidebar.markdown(f"**🤖**: {chat['answer']}")
     
     st.markdown('</div>', unsafe_allow_html=True)
     
