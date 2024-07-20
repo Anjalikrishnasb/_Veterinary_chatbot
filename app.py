@@ -107,11 +107,18 @@ def user_input(user_question):
 
         else:
             # Yield words one by one
-            for word in response["output_text"].split():
+            formatted_response = format_response(response["output_text"])
+            for word in formatted_response.split():
                 yield word
     except Exception as e:
         logging.error(f"Error in user_input function: {e}")
         yield from f"Sorry, something went wrong. Please try again later. Error: {str(e)}".split()
+
+def format_response(response):
+    response = response.replace(' - ', ': ').replace('•', '*')
+    response = re.sub(r'(\d+)', r'\n\1.', response)  # Adding new lines before numbered points
+    response = re.sub(r'\n\s*\n', '\n', response)  # Removing multiple new lines
+    return response.strip()
 
 def get_greeting():
     current_hour = datetime.now().hour
@@ -228,7 +235,10 @@ def main():
     }
     .header h3{
         color: #FFC0CB;
-    }  
+    } 
+    .header h4{
+        color: #50C878;
+    }   
     .chat-container {
         display: flex;
         gap: 2rem;
@@ -319,7 +329,7 @@ def main():
             st.session_state.user_input_text = user_question  # Update the user question with recognized text
             st.text_input("Hi, I'm your friendly veterinary assistant. Ask me anything related to pet care!", value=user_question, key="recognized_input", placeholder=get_greeting())
             if user_question:
-                st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
+                st.markdown("<h4>Response:</h4>", unsafe_allow_html=True)
                 response_placeholder = st.empty()
                 full_response = ""
                 for word in user_input(user_question):
