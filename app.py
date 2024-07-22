@@ -38,8 +38,8 @@ def get_pdf_text_from_folder(pdf_folder):
                 for page in pdf_reader.pages:
                     text += page.extract_text()
     except Exception as e:
-        logging.error(f"Error reading PDFs: {e}")
-        st.error(f"Error reading PDFs: {e}")
+        logging.error(f"Error reading PDFs from folder {pdf_folder}: {e}")
+        st.error(f"Error reading PDFs. Please check the log for details.")
     return text
 
 def get_text_chunks(text):
@@ -59,14 +59,15 @@ def get_vector_store(text_chunks):
         vector_store.save_local("faiss_index")
     except Exception as e:
         logging.error(f"Error creating vector store: {e}")
-        st.error(f"Error creating vector store: {e}")
+        st.error(f"Error processing text. Please check the log for details.")
+        return []
 
 def get_conversational_chain():
-    prompt_template = """Answer the question as detailed as possible from the provided context. Make sure to provide all the details. If 
-    the answer is not in the provided context, just say, "Apologies, I am unable to find the answer." Don't provide the wrong answer.
+    prompt_template = """
+You are a knowledgeable veterinary assistant. Use the provided context to answer the question accurately and concisely. If the answer is not in the context, respond with, "I'm sorry, I don't have that information."
 
 Context:
-{context}?
+{context}
 
 Question:
 {question}
@@ -80,7 +81,7 @@ Answer:
         return chain
     except Exception as e:
         logging.error(f"Error loading QA chain: {e}")
-        st.error(f"Error loading QA chain: {e}")
+        st.error(f"Error setting up the conversation chain. Please check the log for details.")
         return None
 
 def user_input(user_question):
@@ -137,7 +138,7 @@ def text_to_speech(text):
         return audio_fp
     except Exception as e:
         logging.error(f"Error in text_to_speech function: {e}")
-        st.error(f"Error in text-to-speech: {e}")
+        st.error(f"Error converting text to speech. Please check the log for details.")
         return None
 
 def play_audio(audio_fp):
@@ -145,8 +146,8 @@ def play_audio(audio_fp):
         audio = AudioSegment.from_file(audio_fp, format="mp3")
         play(audio)
     except Exception as e:
-        logging.error(f"Error in play_audio function: {e}")
-        st.error(f"Error in playing audio: {e}")
+        logging.error(f"Error playing audio: {e}")
+        st.error(f"Error playing audio. Please check the log for details.")
 
 def speech_to_text():
     recognizer = sr.Recognizer()
@@ -178,7 +179,27 @@ faq = {
     "What are common signs of allergies in pets?": "Common signs of allergies in pets 🐏 include itching, licking, ear infections, and gastrointestinal issues.",
     "How can I prevent ticks and fleas on my pet?": "Use preventative medications, regularly check your pet for ticks and fleas, and maintain a clean environment 🛖.",
     "What should I feed my pet?": "Provide a balanced diet with appropriate portions of high-quality pet food, and avoid feeding them human food 🦴.",
-    "How can I maintain my pet's dental health?": "Regularly brush your pet's teeth 🦷, provide dental chews, and schedule professional cleanings with your veterinarian."
+    "How can I maintain my pet's dental health?": "Regularly brush your pet's teeth 🦷, provide dental chews, and schedule professional cleanings with your veterinarian.",
+    "What is the best way to train my dog?": "Consistency, positive reinforcement, and patience are key. Reward good behavior with treats and praise.",
+    "How often should I bathe my pet?": "Generally, dogs should be bathed every 4-6 weeks, while cats usually groom themselves and need fewer baths.",
+    "What should I do if my pet is overweight?":"Consult your vet for a weight management plan, which may include a special diet and increased exercise.",
+    "How do I know if my pet is dehydrated?":"Signs of dehydration include dry gums, lethargy, and loss of skin elasticity. Ensure they always have access to fresh water.",
+    "What are the signs of heatstroke in pets?":"Symptoms include excessive panting, drooling, vomiting, and weakness. Move your pet to a cool area and contact a vet immediately.",
+    "How can I help my pet with separation anxiety?":"Gradual desensitization, creating a safe space, and using calming aids can help. Consult your vet for additional advice.",
+    "Why is my pet scratching excessively?":"Excessive scratching can be due to allergies, parasites, or skin conditions. A vet visit is recommended for proper diagnosis.",
+    "How can I keep my pet's coat shiny and healthy?":"Regular grooming, a balanced diet rich in omega-3 fatty acids, and proper hydration help maintain a healthy coat.",
+    "What should I do if my pet eats something toxic?":"Contact your vet or an emergency animal clinic immediately. Keep the packaging or a sample of the substance if possible.",
+    "How can I prevent my pet from getting lost?":"Use ID tags, microchips, and ensure your pet is always supervised when outdoors.",
+    "What is the best way to introduce a new pet to my home?":"Gradually introduce them to each other, use positive reinforcement, and give them time to adjust.",
+    "How do I know if my pet is getting enough exercise?":"Monitor their weight, behavior, and overall health. Active and engaged pets usually get enough exercise.",
+    "What are common signs of arthritis in pets?":"Symptoms include limping, difficulty rising, reluctance to jump or climb stairs, and stiffness after resting.",
+    "How can I help my pet during thunderstorms or fireworks?":"Create a safe space, use calming products, and consider desensitization training. Consult your vet for more options.",
+    "Why is my pet eating grass?":"Pets may eat grass due to boredom, dietary deficiency, or to induce vomiting. Monitor their behavior and consult a vet if it persists.",
+    "What should I do if my pet is constipated?":"Ensure they have plenty of water and fiber in their diet. If constipation persists, consult your vet.",
+    "How can I prevent my pet from chewing on household items?":"Provide plenty of toys and chews, ensure they get enough exercise, and use positive reinforcement for good behavior.",
+    "What are the signs of diabetes in pets?":"Increased thirst, frequent urination, weight loss, and lethargy are common signs. A vet visit is necessary for diagnosis and treatment.",
+    "How do I clean my pet's ears?":"Use a vet-approved ear cleaner and gently wipe the outer ear with a cotton ball. Avoid inserting anything into the ear canal.",
+    "What should I do if my pet has a seizure?":"Stay calm, keep them safe from injury, and time the seizure. Contact your vet immediately after the seizure ends."
 }
 
 health_tips = [
@@ -186,7 +207,23 @@ health_tips = [
     "Keep your pet's vaccinations up to date.",
     "Provide a balanced diet for your pet.",
     "Ensure your pet gets enough exercise.",
-    "Maintain proper grooming for your pet."
+    "Maintain proper grooming for your pet.",
+    "Provide fresh, clean water at all times to keep your pet hydrated.",
+    "Use flea, tick, and worm preventatives regularly.",
+    "Brush your pet’s teeth regularly and provide dental chews to prevent dental disease.",
+    "Feed your pet a balanced diet with high-quality ingredients appropriate for their age and size.",
+    "Keep an eye on your pet’s weight and adjust their diet and exercise accordingly.",
+    "Provide a comfortable, clean, and safe sleeping area for your pet.",
+    "Provide toys and activities to keep your pet mentally stimulated and prevent boredom.",
+    "Socialize your pet with other animals and people to reduce anxiety and improve behavior.",
+    "Clean your pet’s ears regularly to prevent infections.",
+    "Watch for signs of illness such as changes in appetite, behavior, or energy levels, and consult a vet if needed.",
+    "Ensure your home and yard are safe and free from hazards like toxic plants and chemicals.",
+    "Protect your pet from extreme temperatures; provide warmth in winter and cool areas in summer.",
+    "Consider spaying or neutering your pet to prevent unwanted litters and reduce certain health risks.",
+    "Perform regular at-home check-ups, including checking their eyes, ears, and skin for any abnormalities.",
+    "Use a harness or a crate when traveling to keep your pet safe.",
+    "Have a pet first aid kit and a plan in place for emergencies."
 ]
 
 def main():
@@ -241,9 +278,12 @@ def main():
     .health-tip h3 {
         color: white; /* Different pink shade for the heading text */
     }
-    .header h4{
-        color: #50C878;
-    }   
+    .response-header {
+    color: #50C878;
+    font-size: 1.5rem;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    }  
     .chat-container {
         display: flex;
         gap: 2rem;
@@ -335,7 +375,7 @@ def main():
             st.session_state.user_input_text = user_question  # Update the user question with recognized text
             st.text_input("", value=user_question, key="recognized_input", placeholder=get_greeting())
             if user_question:
-                st.markdown("<h4>Response:</h4>", unsafe_allow_html=True)
+                st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
                 response_placeholder = st.empty()
                 full_response = ""
                 for word in user_input(user_question):
