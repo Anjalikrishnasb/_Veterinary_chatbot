@@ -312,19 +312,7 @@ health_tips = [
 ]
 
 def main():
-    
-    if 'chat_history' not in st.session_state:
-        st.session_state['chat_history'] = []
-
-    if 'current_image_match' not in st.session_state:
-        st.session_state['current_image_match'] = None
-    
-    if 'current_image_data' not in st.session_state:
-        st.session_state['current_image_data'] = None
-
-    if 'current_image_content' not in st.session_state:
-        st.session_state['current_image_content'] = None
-    
+     
     def load_image(image_path):
         with open(image_path, "rb") as image_file:
              encoded_image = base64.b64encode(image_file.read()).decode()
