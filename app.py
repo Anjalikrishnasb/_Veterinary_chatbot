@@ -1,4 +1,5 @@
 import streamlit as st
+st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.callbacks import StreamingStdOutCallbackHandler
@@ -23,10 +24,26 @@ from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
 import base64
 import re
 import time
+from PIL import Image
+import numpy as np
+import imagehash
+import fitz
+import io
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
+
+if 'chat_history' not in st.session_state:
+    st.session_state['chat_history'] = []
+if 'current_image_match' not in st.session_state:
+    st.session_state['current_image_match'] = None
+if 'current_image_data' not in st.session_state:
+    st.session_state['current_image_data'] = None
+if 'current_image_content' not in st.session_state:
+    st.session_state['current_image_content'] = None
+if 'voice_input' not in st.session_state:
+    st.session_state.voice_input = ""
 
 def get_pdf_text_from_folder(pdf_folder):
     text = ""
@@ -34,9 +51,10 @@ def get_pdf_text_from_folder(pdf_folder):
         for pdf_file in os.listdir(pdf_folder):
             if pdf_file.endswith(".pdf"):
                 pdf_path = os.path.join(pdf_folder, pdf_file)
-                pdf_reader = PdfReader(pdf_path)
-                for page in pdf_reader.pages:
-                    text += page.extract_text()
+                loader = PyPDFLoader(pdf_path)
+                pages = loader.load_and_split()
+                for page in pages:
+                    text += page.page_content + "\n\n"
     except Exception as e:
         logging.error(f"Error reading PDFs from folder {pdf_folder}: {e}")
         st.error(f"Error reading PDFs. Please check the log for details.")
@@ -44,7 +62,7 @@ def get_pdf_text_from_folder(pdf_folder):
 
 def get_text_chunks(text):
     try:
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000,length_function=len)
         chunks = text_splitter.split_text(text)
         return chunks
     except Exception as e:
@@ -57,67 +75,135 @@ def get_vector_store(text_chunks):
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
         vector_store.save_local("faiss_index")
+        return vector_store
     except Exception as e:
         logging.error(f"Error creating vector store: {e}")
         st.error(f"Error processing text. Please check the log for details.")
-        return []
-
+        return None
+    
 def get_conversational_chain():
     prompt_template = """
-You are a knowledgeable veterinary assistant. Use the provided context to answer the question accurately and concisely. If the answer is not in the context, respond with, "I'm sorry, I don't have that information."
+    You are a knowledgeable veterinary assistant. Use the information provided in the context, chat history, and image context to answer the question accurately and concisely. If the answer cannot be found in the provided information, state that clearly.
 
-Context:
-{context}
+    Context:
+    {context}
 
-Question:
-{question}
+    Chat History:
+    {chat_history}
 
-Answer:
-"""
+    Image Context:
+    {image_context}
+
+    Human: {question}
+    AI: Based on the provided information:
+    """
+  
+
     try:
-        model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3)
-        prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+        model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.6)
+        prompt = PromptTemplate(template=prompt_template, input_variables=["context", "chat_history","image_context", "question"])
         chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
         return chain
     except Exception as e:
         logging.error(f"Error loading QA chain: {e}")
         st.error(f"Error setting up the conversation chain. Please check the log for details.")
         return None
-
-def user_input(user_question):
+    
+def extract_text_from_pdf(pdf_path, page_number):
     try:
-        greetings = ["hello", "hai", "hi", "hey", "good morning", "good afternoon", "good evening"]
-        if user_question.lower() in greetings:
-            yield from get_greeting().split()
-            return
+        with fitz.open(pdf_path) as doc:
+            if page_number < len(doc):
+                page = doc[page_number]
+                text = page.get_text()
+            else:
+                text = "Page number out of range"
+        return text
+    except Exception as e:
+        st.error(f"Error extracting text from PDF: {str(e)}")
+        return ""
+    
+def process_image(uploaded_file):
+    if uploaded_file is not None:
+        try:
+            uploaded_image = Image.open(uploaded_file)
+            uploaded_hash = imagehash.average_hash(uploaded_image)
+            
+            data_folder = os.path.join(os.getcwd(), "data")
+            st.write(f"Debug: Searching in folder {data_folder}")
+            
+            if not os.path.exists(data_folder):
+                st.error(f"Error: Folder {data_folder} does not exist")
+                return None, None, None
 
+            for filename in os.listdir(data_folder):
+                if filename.lower().endswith('.pdf'):
+                    pdf_path = os.path.join(data_folder, filename)
+                    st.write(f"Debug: Processing PDF {filename}")
+                    
+                    with fitz.open(pdf_path) as doc:
+                        for idx in range(len(doc)):  
+                            page = doc[idx]
+                            images = page.get_images(full=True)
+                            for image_index, img in enumerate(images):
+                                xref = img[0]
+                                base_image = doc.extract_image(xref)
+                                image_bytes = base_image["image"]
+                                image = Image.open(io.BytesIO(image_bytes))
+                                
+                                image_hash = imagehash.average_hash(image)
+                                hash_diff = uploaded_hash - image_hash
+                                
+                                if hash_diff < 15:  
+                                    st.write(f"Debug: Match found in {filename}, image {idx}")
+                                    pdf_text = extract_text_from_pdf(pdf_path, idx)
+                                    return f"{os.path.splitext(filename)[0]}_image_{idx}", image, pdf_text
+            st.write("Debug: No matching image found")
+            return None, None, None
+        except Exception as e:
+            st.error(f"Error processing uploaded image: {str(e)}")
+            return None, None, None
+    return None, None, None
+
+def user_input(user_question, chat_history, image_match=None, image_content=None):
+    try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-        docs = new_db.similarity_search(user_question)
+        
+        recent_context = "\n".join([f"Human: {chat['question']}\nAI: {chat['answer']}" for chat in chat_history[-5:]])
+        combined_query = f"{recent_context}\nHuman: {user_question}"
+        
+        docs = new_db.similarity_search(combined_query,k=10)
+        context = "\n".join([doc.page_content for doc in docs])
 
-        streaming_handler = StreamingStdOutCallbackHandler()
+        if image_match and image_content:
+            context += f"\nImage context: {image_match}\n{image_content}"
 
         chain = get_conversational_chain()
+        
         response = chain(
-            {"input_documents": docs, "question": user_question},
-            callbacks=[streaming_handler],
+            {
+                "input_documents": docs,
+                "question": combined_query,  
+                "chat_history": recent_context,
+                "context": context,
+                "image_context": image_content if image_content else "No image context available"
+            },
             return_only_outputs=True
         )
+        
         if not response or not response.get("output_text"):
-            yield from "Apologies, I am unable to find the answer. Can you please rephrase your question?".split()
-
+            return "I'm sorry, I don't have that information in my existing data."
         else:
-            formatted_response = format_response(response["output_text"])
-            for word in formatted_response.split():
-                yield word
+            return format_response(response["output_text"])
+            
     except Exception as e:
         logging.error(f"Error in user_input function: {e}")
-        yield from f"Sorry, something went wrong. Please try again later. Error: {str(e)}".split()
-
+        return f"Sorry, something went wrong. Please try again later. Error: {str(e)}"
+    
 def format_response(response):
     response = response.replace(' - ', ': ').replace('•', '*')
-    response = re.sub(r'(\d+)', r'\n\1.', response)  # Adding new lines before numbered points
-    response = re.sub(r'\n\s*\n', '\n', response)  # Removing multiple new lines
+    response = re.sub(r'(\d+)', r'\n\1.', response)  
+    response = re.sub(r'\n\s*\n', '\n', response) 
     return response.strip()
 
 def get_greeting():
@@ -135,7 +221,8 @@ def text_to_speech(text):
         audio_fp = BytesIO()
         tts.write_to_fp(audio_fp)
         audio_fp.seek(0)
-        return audio_fp
+        audio_base64 = base64.b64encode(audio_fp.read()).decode()
+        return audio_base64
     except Exception as e:
         logging.error(f"Error in text_to_speech function: {e}")
         st.error(f"Error converting text to speech. Please check the log for details.")
@@ -143,6 +230,7 @@ def text_to_speech(text):
 
 def play_audio(audio_fp):
     try:
+        audio_fp.seek(0)
         audio = AudioSegment.from_file(audio_fp, format="mp3")
         play(audio)
     except Exception as e:
@@ -152,7 +240,7 @@ def play_audio(audio_fp):
 def speech_to_text():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        warning_placeholder = st.empty()  # Create a placeholder for the warning
+        warning_placeholder = st.empty()  
         warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
         recognizer.adjust_for_ambient_noise(source, duration=1)
         try:
@@ -161,13 +249,10 @@ def speech_to_text():
            warning_placeholder.empty()
            return text
         except sr.UnknownValueError:
-           warning_placeholder.empty()
-           st.error("Sorry, I couldn't understand that.")
-           return None
+            st.error("Sorry, I couldn't understand that.")
         except sr.RequestError as e:
-           warning_placeholder.empty()
-           st.error(f"Could not request results; {e}")
-           return None
+            st.error(f"Could not request results; {e}")
+    return None
 
 faq = {
     "What are the vaccination schedules for dogs?": "Vaccinations 💉 typically start at 6-8 weeks of age and continue every 3-4 weeks until 16 weeks old.",
@@ -227,7 +312,19 @@ health_tips = [
 ]
 
 def main():
-    st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
+    
+    if 'chat_history' not in st.session_state:
+        st.session_state['chat_history'] = []
+
+    if 'current_image_match' not in st.session_state:
+        st.session_state['current_image_match'] = None
+    
+    if 'current_image_data' not in st.session_state:
+        st.session_state['current_image_data'] = None
+
+    if 'current_image_content' not in st.session_state:
+        st.session_state['current_image_content'] = None
+    
     def load_image(image_path):
         with open(image_path, "rb") as image_file:
              encoded_image = base64.b64encode(image_file.read()).decode()
@@ -278,6 +375,7 @@ def main():
     .health-tip h3 {
         color: white; /* Different pink shade for the heading text */
     }
+    
     .response-header {
     color: #50C878;
     font-size: 1.5rem;
@@ -286,6 +384,7 @@ def main():
     }  
     .chat-container {
         display: flex;
+        align-items: flex-end;
         gap: 2rem;
                 
     }
@@ -297,7 +396,7 @@ def main():
     }
     .input-container {
         display: flex;
-                align-items: flex-end;
+        align-items: flex-end;
         margin-top: 1rem;
     }
     .input-container input {
@@ -333,6 +432,7 @@ def main():
     # Header
     st.markdown(
         f"""
+        
         <div class="header">
         <img src="data:image/jpeg;base64,{encoded_image}" alt="Veterinary Icon"/>
         <h1>PAWSITIVE</h1>
@@ -354,61 +454,81 @@ def main():
     # Chat main area
     st.markdown('<div class="chat-main">', unsafe_allow_html=True)
     
-    
+    if 'show_image' not in st.session_state:
+        st.session_state.show_image = True
+
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+    if uploaded_file is not None:
+        if st.session_state.show_image:
+            st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+        
+        with st.spinner("Processing image..."):
+            image_match, matched_image,image_content = process_image(uploaded_file)
+        if image_match and matched_image and image_content:
+            st.warning("This image is similar to an image in my document. The match may not be 100% accurate.", icon="⚠️")
+            time.sleep(3)
+            st.empty()
+            st.write(f"Image matched: {image_match}")
+            st.session_state.current_image_match = image_match
+            st.session_state.current_image_data = matched_image
+            st.session_state.current_image_content = image_content
+            
+        else:
+            st.warning("No matching image found in the existing data.")
+            st.session_state.current_image_match = None
+            st.session_state.current_image_data = None
+            st.session_state.current_image_content = None
+
+    if st.session_state.current_image_data is not None:
+        st.image(st.session_state.current_image_data, caption="Current Image Context", use_column_width=True)
+
     # User input
-    
-    col1, col2,col3 = st.columns([6,1,1])
+    col1, col2, col3 = st.columns([6,1,1])
     with col1:
-        user_question = st.text_input("Hi,Ask me anything related to pet care!", key="user_input",placeholder=get_greeting())
-       
+        user_question = st.text_input("Ask me anything related to pet care or the uploaded image!", key="user_input", value=st.session_state.voice_input,  placeholder=get_greeting())
+    
     with col2:
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
         speak_button = st.button("🎤")
     with col3: 
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
         send_button = st.button("➤")
-        
+
     if speak_button:
-        recognized_text = speech_to_text()  # Call the speech recognition function
+        recognized_text = speech_to_text()
         if recognized_text:
             user_question = recognized_text
-            st.session_state.user_input_text = user_question  # Update the user question with recognized text
-            st.text_input("", value=user_question, key="recognized_input", placeholder=get_greeting())
-            if user_question:
-                st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
-                response_placeholder = st.empty()
-                full_response = ""
-                for word in user_input(user_question):
-                    full_response += word + " "
-                    response_placeholder.markdown(full_response)
-                    time.sleep(0.05)
-                
-                audio_fp = text_to_speech(full_response)
-                if audio_fp:
-                    st.audio(audio_fp, format='audio/mp3')
+            st.session_state.voice_input = recognized_text
+            st.experimental_rerun()
 
-                if "chat_history" not in st.session_state:
-                    st.session_state.chat_history = []
-                st.session_state.chat_history.append({"question": user_question, "answer": full_response.strip()})
-                st.session_state.user_question = ""
-    if send_button:
-        if user_question:
+    st.session_state.voice_input = ""
+
+    if send_button or user_question:
             st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
             response_placeholder = st.empty()
-            full_response = ""
-            for word in user_input(user_question):
-                full_response += word + " "
-                response_placeholder.markdown(full_response)
-                time.sleep(0.05)
+            full_response = user_input(user_question, 
+                                       st.session_state.chat_history, 
+                                       st.session_state.current_image_match,
+                                       st.session_state.current_image_content)
+            displayed_response = ""
+            for word in full_response.split():
+                displayed_response += f" {word}"
+                response_placeholder.markdown(displayed_response)
+                time.sleep(0.02)
             
-            audio_fp = text_to_speech(full_response)
-            if audio_fp:
-                st.audio(audio_fp, format='audio/mp3')
-
-            if "chat_history" not in st.session_state:
-                st.session_state.chat_history = []
-            st.session_state.chat_history.append({"question": user_question, "answer": full_response.strip()})
-            st.session_state.user_question = ""
+            audio_base64 = text_to_speech(full_response)
+            
+            st.session_state.chat_history.append({
+                "question": user_question,
+                "answer": full_response.strip(),
+                "audio": audio_base64
+            })
+            
+    for chat in st.session_state.chat_history:
+        with  st.expander(f"**🐰**: {chat['question']}"):
+            st.markdown(f"**🤖**: {chat['answer']}")
+            if chat['audio']:
+                st.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -421,13 +541,13 @@ def main():
         st.sidebar.write(f"**Answer**: {faq[question]}")
 
     st.sidebar.title("Chat History")
-    if "chat_history" in st.session_state:
-        for chat in st.session_state.chat_history:
-            st.sidebar.markdown(f"**🐰**: {chat['question']}")
+    for chat in st.session_state.chat_history:
+        with st.sidebar.expander(f"**🐰**: {chat['question']}"):
             st.sidebar.markdown(f"**🤖**: {chat['answer']}")
+            if chat['audio']:
+                st.sidebar.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-
 if __name__ == "__main__":
     main()
