@@ -313,6 +313,19 @@ health_tips = [
 
 def main():
      
+    if 'chat_history' not in st.session_state:
+        st.session_state['chat_history'] = []
+    if 'current_image_match' not in st.session_state:
+        st.session_state['current_image_match'] = None
+    if 'current_image_data' not in st.session_state:
+        st.session_state['current_image_data'] = None
+    if 'current_image_content' not in st.session_state:
+        st.session_state['current_image_content'] = None
+    if 'voice_input' not in st.session_state:
+        st.session_state.voice_input = ""
+    if 'last_processed_question' not in st.session_state:
+        st.session_state.last_processed_question = ""
+
     def load_image(image_path):
         with open(image_path, "rb") as image_file:
              encoded_image = base64.b64encode(image_file.read()).decode()
@@ -444,7 +457,7 @@ def main():
     
     if 'show_image' not in st.session_state:
         st.session_state.show_image = True
-
+        
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
         if st.session_state.show_image:
@@ -472,8 +485,15 @@ def main():
 
     # User input
     col1, col2, col3 = st.columns([6,1,1])
+
+    if st.session_state.voice_input:
+        user_question = st.session_state.voice_input
+        st.session_state.voice_input = ""
+    else:
+        user_question = st.session_state.get('user_input', '')
+
     with col1:
-        user_question = st.text_input("Ask me anything related to pet care or the uploaded image!", key="user_input", value=st.session_state.voice_input,  placeholder=get_greeting())
+        user_question = st.text_input("Ask me anything related to pet care or the uploaded image!", key="user_input", value=user_question,  placeholder=get_greeting())
     
     with col2:
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
@@ -489,9 +509,9 @@ def main():
             st.session_state.voice_input = recognized_text
             st.experimental_rerun()
 
-    st.session_state.voice_input = ""
+    
 
-    if send_button or user_question:
+    if send_button or (user_question and user_question != st.session_state.last_processed_question):
             st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
             response_placeholder = st.empty()
             full_response = user_input(user_question, 
@@ -511,6 +531,8 @@ def main():
                 "answer": full_response.strip(),
                 "audio": audio_base64
             })
+
+            st.session_state.last_processed_question = user_question
             
     for chat in st.session_state.chat_history:
         with  st.expander(f"**🐰**: {chat['question']}"):
