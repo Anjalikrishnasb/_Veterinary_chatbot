@@ -14,3 +14,4 @@ langchain-google-genai==1.0.8
 langchain-core==0.2.26
 google-ai-generativelanguage==0.6.6
 langchain-community
+pyaudio
