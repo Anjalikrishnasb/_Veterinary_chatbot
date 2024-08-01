@@ -13,7 +13,7 @@ try:
 except ImportError:
     PYAUDIO_AVAILABLE = False
     st.warning("PyAudio is not installed. Voice input functionality will be disabled.")
-    
+
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain_community.vectorstores import FAISS
@@ -35,6 +35,9 @@ import io
 import subprocess
 import sys
 
+
+st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
+
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
@@ -43,8 +46,6 @@ try:
 except ImportError:
     install('google-generativeai')
     import google.generativeai as genai
-
-st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
 
 # Setup logging
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
