@@ -13,3 +13,4 @@ google-generativeai==0.7.2
 langchain-google-genai==1.0.8
 langchain-core==0.2.26
 google-ai-generativelanguage==0.6.6
+faiss-cpu
