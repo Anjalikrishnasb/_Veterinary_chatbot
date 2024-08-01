@@ -35,31 +35,32 @@ load_dotenv()
 logging.debug("Environment variables loaded")
 # Function to get API key
 def get_api_key():
-    # Try to get from .env file first
+def get_api_key():
     api_key = os.getenv("GOOGLE_API_KEY")
     if api_key:
-        logging.debug("API key obtained from .env file")
+        logging.debug(f"API key obtained from environment: {api_key[:5]}...")
         return api_key
     
-    # If not in .env, try Streamlit secrets
     try:
         api_key = st.secrets["GOOGLE_API_KEY"]
-        logging.debug("API key obtained from Streamlit secrets")
+        logging.debug(f"API key obtained from Streamlit secrets: {api_key[:5]}...")
         return api_key
     except KeyError:
-        logging.debug("API key not found in Streamlit secrets")
+        logging.error("API key not found in Streamlit secrets")
     
-    # If still not found, show error and stop
-    logging.error("GOOGLE_API_KEY not found")
+    logging.error("GOOGLE_API_KEY not found in environment or secrets")
     st.error("GOOGLE_API_KEY not found. Please set it in .env file or Streamlit secrets.")
     st.stop()
 
-# Get API key
 api_key = get_api_key()
+print(f"API key: {api_key[:5]}...")  # Print first 5 characters for security
 
-# Configure Google API
-genai.configure(api_key=api_key)
+import os
+print("Current working directory:", os.getcwd())
 
+print("Files in directory:", os.listdir())
+
+print("GenAI configured with API key:", genai.configure.api_key[:5] + "...")
 
 if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
