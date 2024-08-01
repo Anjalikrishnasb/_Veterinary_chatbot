@@ -124,7 +124,7 @@ def process_image(uploaded_file):
             uploaded_image = Image.open(uploaded_file)
             uploaded_hash = imagehash.average_hash(uploaded_image)
             
-            data_folder = os.path.join(os.getcwd(), "data")
+            data_folder = os.path.join(os.path.dirname(__file__), "data")
             st.write(f"Debug: Searching in folder {data_folder}")
             
             if not os.path.exists(data_folder):
@@ -323,12 +323,18 @@ def main():
         st.session_state.last_processed_question = ""
 
     def load_image(image_path):
-        with open(image_path, "rb") as image_file:
-             encoded_image = base64.b64encode(image_file.read()).decode()
-        return encoded_image
-    
-    image_path = r"C:\Users\ANJALI\OneDrive\Desktop\_Veterinary_chatbot\pet-friendly-chalk-white-icon-on-black-background-vector.jpg"
+        try:
+            with open(image_path, "rb") as image_file:
+                encoded_image = base64.b64encode(image_file.read()).decode()
+            return encoded_image
+        except FileNotFoundError:
+            st.error(f"Image file not found:{image_path}")
+            return None
+
+    image_path = os.path.join("images", "pet-friendly-chalk-white-icon-on-black-background-vector.jpg")
     encoded_image = load_image(image_path)
+    if encoded_image is None:
+        st.error("Failed to load the image. Using a placeholder or default image.")
     
     # Custom CSS for improved styling
     st.markdown("""
