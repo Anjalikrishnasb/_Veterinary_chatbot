@@ -25,17 +25,38 @@ import imagehash
 import fitz
 import io
 
+st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
+
+# Setup logging
+logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
+
+# Load environment variables
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    st.error("GOOGLE_API_KEY not found in environment variables.")
+
+# Function to get API key
+def get_api_key():
+    # Try to get from streamlit secrets first (for Streamlit Cloud)
+    try:
+        api_key = st.secrets["GOOGLE_API_KEY"]
+        return api_key
+    except KeyError:
+        pass
+    
+    # If not in secrets, try environment variable
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if api_key:
+        return api_key
+    
+    # If still not found, show error and stop
+    st.error("GOOGLE_API_KEY not found. Please set it in Streamlit secrets or environment variables.")
     st.stop()
 
-else:
-    genai.configure(api_key=api_key)
+# Get API key
+api_key = get_api_key()
 
-st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
-logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
+# Configure Google API
+genai.configure(api_key=api_key)
+
 
 if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
