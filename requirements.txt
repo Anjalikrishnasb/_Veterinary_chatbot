@@ -14,3 +14,4 @@ langchain-google-genai
 langchain-core
 google-ai-generativelanguage
 langchain-community
+pyaudio
