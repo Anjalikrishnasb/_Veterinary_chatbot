@@ -29,8 +29,11 @@ load_dotenv()
 api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
     st.error("GOOGLE_API_KEY not found in environment variables.")
+    st.stop()
+
 else:
     genai.configure(api_key=api_key)
+
 st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 
