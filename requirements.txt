@@ -9,3 +9,4 @@ Pillow
 imagehash
 PyMuPDF
 gtts
+langchain-google-genai
