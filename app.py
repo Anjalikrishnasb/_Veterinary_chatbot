@@ -35,7 +35,13 @@ load_dotenv()
 logging.debug("Environment variables loaded")
 # Function to get API key
 def get_api_key():
-    # Try to get from streamlit secrets first (for Streamlit Cloud)
+    # Try to get from .env file first
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if api_key:
+        logging.debug("API key obtained from .env file")
+        return api_key
+    
+    # If not in .env, try Streamlit secrets
     try:
         api_key = st.secrets["GOOGLE_API_KEY"]
         logging.debug("API key obtained from Streamlit secrets")
@@ -43,15 +49,9 @@ def get_api_key():
     except KeyError:
         logging.debug("API key not found in Streamlit secrets")
     
-    # If not in secrets, try environment variable
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if api_key:
-        logging.debug("API key obtained from environment variable")
-        return api_key
-    
     # If still not found, show error and stop
     logging.error("GOOGLE_API_KEY not found")
-    st.error("GOOGLE_API_KEY not found. Please set it in Streamlit secrets or environment variables.")
+    st.error("GOOGLE_API_KEY not found. Please set it in .env file or Streamlit secrets.")
     st.stop()
 
 # Get API key
