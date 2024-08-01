@@ -6,6 +6,14 @@ import speech_recognition as sr
 from pydub import AudioSegment
 from pydub.playback import play
 from io import BytesIO
+
+try:
+    import pyaudio
+    PYAUDIO_AVAILABLE = True
+except ImportError:
+    PYAUDIO_AVAILABLE = False
+    st.warning("PyAudio is not installed. Voice input functionality will be disabled.")
+    
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain_community.vectorstores import FAISS
@@ -267,20 +275,31 @@ def play_audio(audio_fp):
         st.error(f"Error playing audio. Please check the log for details.")
 
 def speech_to_text():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        warning_placeholder = st.empty()  
-        warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
-        recognizer.adjust_for_ambient_noise(source, duration=1)
-        try:
-           audio = recognizer.listen(source, timeout=3)
-           text = recognizer.recognize_google(audio).lower()
-           warning_placeholder.empty()
-           return text
-        except sr.UnknownValueError:
-            st.error("Sorry, I couldn't understand that.")
-        except sr.RequestError as e:
-            st.error(f"Could not request results; {e}")
+    try:
+        import speech_recognition as sr
+    except ImportError:
+        st.error("Speech recognition is not available. PyAudio or speech_recognition module is missing.")
+        return None
+    
+    try:
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            warning_placeholder = st.empty()  
+            warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+            try:
+               audio = recognizer.listen(source, timeout=3)
+               text = recognizer.recognize_google(audio).lower()
+               warning_placeholder.empty()
+               return text
+            except sr.UnknownValueError:
+                st.error("Sorry, I couldn't understand that.")
+            except sr.RequestError as e:
+                st.error(f"Could not request results; {e}")
+    except AttributeError:
+        st.error("Microphone is not available. Please make sure PyAudio is installed and you have a working microphone.")
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
     return None
 
 faq = {
@@ -532,17 +551,21 @@ def main():
     
     with col2:
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
-        speak_button = st.button("🎤")
+        speak_button = st.button("🎤",disabled=not PYAUDIO_AVAILABLE)
     with col3: 
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
         send_button = st.button("➤")
 
     if speak_button:
-        recognized_text = speech_to_text()
-        if recognized_text:
-            user_question = recognized_text
-            st.session_state.voice_input = recognized_text
-            st.experimental_rerun()
+        try:
+            recognized_text = speech_to_text()
+            if recognized_text:
+                user_question = recognized_text
+                st.session_state.voice_input = recognized_text
+                st.experimental_rerun()
+        except Exception as e:
+            st.error(f"An error occurred with speech recognition: {str(e)}")
+            st.info("Speech recognition may not be available in this environment. Please type your question instead.")
 
     
 
