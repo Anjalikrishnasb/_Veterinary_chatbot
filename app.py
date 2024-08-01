@@ -26,9 +26,28 @@ import imagehash
 import fitz
 import io
 
-load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# Set up logging
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
+
+# Load environment variables
+load_dotenv()
+
+# Configure API key
+api_key = os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    st.error("GOOGLE_API_KEY not found in environment variables.")
+    st.stop()
+
+try:
+    genai.configure(api_key=api_key)
+    logging.info("Google API configured successfully.")
+except Exception as e:
+    logging.error(f"Error configuring Google API: {str(e)}")
+    st.error(f"Error configuring Google API: {str(e)}")
+    st.stop()
+
+# Verify API key is loaded
+st.write(f"API Key loaded: {'GOOGLE_API_KEY' in os.environ}")
 
 if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
