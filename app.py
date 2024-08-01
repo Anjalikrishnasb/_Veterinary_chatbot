@@ -33,8 +33,7 @@ logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 # Load environment variables
 load_dotenv()
 logging.debug("Environment variables loaded")
-# Function to get API key
-def get_api_key():
+
 def get_api_key():
     api_key = os.getenv("GOOGLE_API_KEY")
     if api_key:
