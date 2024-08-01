@@ -10,3 +10,4 @@ imagehash
 PyMuPDF
 gtts
 langchain-google-genai
+faiss-cpu
