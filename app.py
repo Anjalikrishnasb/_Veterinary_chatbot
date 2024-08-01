@@ -1,5 +1,4 @@
 import streamlit as st
-st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from gtts import gTTS
@@ -26,28 +25,14 @@ import imagehash
 import fitz
 import io
 
-# Set up logging
-logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
-
-# Load environment variables
 load_dotenv()
-
-# Configure API key
 api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
     st.error("GOOGLE_API_KEY not found in environment variables.")
-    st.stop()
-
-try:
+else:
     genai.configure(api_key=api_key)
-    logging.info("Google API configured successfully.")
-except Exception as e:
-    logging.error(f"Error configuring Google API: {str(e)}")
-    st.error(f"Error configuring Google API: {str(e)}")
-    st.stop()
-
-# Verify API key is loaded
-st.write(f"API Key loaded: {'GOOGLE_API_KEY' in os.environ}")
+st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
+logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 
 if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
