@@ -1,8 +1,6 @@
 import streamlit as st
 st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
-from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.callbacks import StreamingStdOutCallbackHandler
 import os
 from gtts import gTTS
 import speech_recognition as sr
@@ -19,13 +17,11 @@ from dotenv import load_dotenv
 from datetime import datetime
 import random
 import logging
-import pandas as pd
 from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
 import base64
 import re
 import time
 from PIL import Image
-import numpy as np
 import imagehash
 import fitz
 import io

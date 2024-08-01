@@ -1,8 +1,11 @@
 streamlit
+PyPDF2
+langchain
 google-generativeai
 python-dotenv
-langchain
-PyPDF2
-faiss-cpu
-langchain_google_genai
-pillow
+pydub
+SpeechRecognition
+Pillow
+imagehash
+PyMuPDF
+gtts
