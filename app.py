@@ -1,4 +1,6 @@
 import streamlit as st
+st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from gtts import gTTS
@@ -34,9 +36,6 @@ import fitz
 import io
 import subprocess
 import sys
-
-
-st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
 
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
