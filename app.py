@@ -24,7 +24,6 @@ from PIL import Image
 import imagehash
 import fitz
 import io
-import sys
 
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -109,7 +108,7 @@ def get_conversational_chain():
     AI: Based on the provided information:
     """
     try:
-        model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.6)
+        model = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.6)
         prompt = PromptTemplate(template=prompt_template, input_variables=["context", "chat_history","image_context", "question"])
         chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
         return chain
@@ -121,7 +120,7 @@ def get_conversational_chain():
 def process_image(uploaded_file):
     if uploaded_file is not None:
         try:
-            uploaded_image = Image.open(uploaded_file)
+            uploaded_image = Image.open(uploaded_file).convert('RGB')
             uploaded_hash = imagehash.average_hash(uploaded_image)
             
             data_folder = os.path.join(os.path.dirname(__file__), "data")
@@ -189,6 +188,8 @@ def user_input(user_question, chat_history, image_match=None, image_content=None
             context += f"\nImage context: {image_match}\n{image_content}"
 
         chain = get_conversational_chain()
+        if chain is None:
+            return "Sorry, I'm having trouble setting up the conversation. Please try again later."
         
         response = chain(
             {
@@ -530,7 +531,7 @@ def main():
             if recognized_text:
                 user_question = recognized_text
                 st.session_state.voice_input = recognized_text
-                st.experimental_rerun()
+                st.rerun()
 
         if send_button or (user_question and user_question != st.session_state.last_processed_question):
                 st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
