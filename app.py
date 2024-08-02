@@ -326,11 +326,17 @@ def main():
         st.session_state['current_image_content'] = None
     
     def load_image(image_path):
-        with open(image_path, "rb") as image_file:
-             encoded_image = base64.b64encode(image_file.read()).decode()
-        return encoded_image
+        try:
+            with open(image_path, "rb") as image_file:
+                return base64.b64encode(image_file.read()).decode()
+        except FileNotFoundError:
+            print(f"Image file not found at path: {image_path}")
+            return None
+        except Exception as e:
+            print(f"Error loading image: {str(e)}")
+            return None
     
-    image_path = r"C:\Users\ANJALI\OneDrive\Desktop\_Veterinary_chatbot\pet-friendly-chalk-white-icon-on-black-background-vector.jpg"
+    image_path = r"C:\Users\ANJALI\OneDrive\Desktop\_Veterinary_chatbot\images\pet-friendly-chalk-white-icon-on-black-background-vector.jpg"
     encoded_image = load_image(image_path)
     
     # Custom CSS for improved styling
