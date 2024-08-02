@@ -31,6 +31,11 @@ import fitz
 import io
 
 load_dotenv()
+
+if not os.getenv("GOOGLE_API_KEY"):
+    st.error("Google API Key not found. Please set the GOOGLE_API_KEY environment variable.")
+    st.stop()
+    
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 
@@ -238,8 +243,9 @@ def play_audio(audio_fp):
         st.error(f"Error playing audio. Please check the log for details.")
 
 def speech_to_text():
-    recognizer = sr.Recognizer()
+    
     try:
+        recognizer = sr.Recognizer()
         with sr.Microphone() as source:
             warning_placeholder = st.empty()  
             warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
@@ -247,7 +253,8 @@ def speech_to_text():
             audio = recognizer.listen(source, timeout=3)
             text = recognizer.recognize_google(audio).lower()
             warning_placeholder.empty()
-            return text
+        text = recognizer.recognize_google(audio).lower()
+        return text
     except sr.UnknownValueError:
         st.error("Sorry, I couldn't understand that.")
     except sr.RequestError as e:
@@ -337,8 +344,9 @@ def main():
         except Exception as e:
             print(f"Error loading image: {str(e)}")
             return None
-    
-    image_path = os.path.join("images","pet-friendly-chalk-white-icon-on-black-background-vector.jpg")
+
+    # In the main function:
+    image_path = os.path.join(os.path.dirname(__file__), "images", "pet-friendly-chalk-white-icon-on-black-background-vector.jpg")
     encoded_image = load_image(image_path)
     
     # Custom CSS for improved styling
@@ -437,16 +445,21 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # Header
-    st.markdown(
-        f"""
-        
-        <div class="header">
-        <img src="data:image/jpeg;base64,{encoded_image}" alt="Veterinary Icon"/>
-        <h1>PAWSITIVE</h1>
-    </div>
-    """, unsafe_allow_html=True)
-
+    if encoded_image:
+        st.markdown(
+            f"""
+            <div class="header">
+            <img src="data:image/jpeg;base64,{encoded_image}" alt="Veterinary Icon"/>
+            <h1>PAWSITIVE</h1>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown(
+            f"""
+            <div class="header">
+            <h1>PAWSITIVE</h1>
+            </div>
+            """, unsafe_allow_html=True)
     # Health Tip
     health_tip = random.choice(health_tips)
     st.markdown(f"""
@@ -538,8 +551,10 @@ def main():
     for chat in st.session_state.chat_history:
         with  st.expander(f"**🐰**: {chat['question']}"):
             st.markdown(f"**🤖**: {chat['answer']}")
-            if chat['audio']:
+            if chat.get('audio'):
                 st.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
+            else:
+                st.warning("Audio conversion failed for this response.")
 
     st.markdown('</div>', unsafe_allow_html=True)
 

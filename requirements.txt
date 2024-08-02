@@ -13,3 +13,4 @@ pydub
 PyMuPDF
 imagehash
 pyaudio
+pocketsphinx
