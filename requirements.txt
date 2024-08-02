@@ -1,9 +1,9 @@
-streamlit
+streamlit==1.24.0
 google-generativeai
 python-dotenv
 langchain
 PyPDF2
-faiss-cpu>=1.7.4
+faiss-cpu
 langchain_google_genai
 pillow
 gtts
