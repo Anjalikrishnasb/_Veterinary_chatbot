@@ -14,7 +14,7 @@ from io import BytesIO
 #     PYAUDIO_AVAILABLE = True
 # except ImportError:
 #     PYAUDIO_AVAILABLE = False
-#     st.warning("PyAudio is not installed. Voice input functionality will be disabled.")
+#     print("PyAudio is not available. Voice input functionality will be disabled.")
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
@@ -618,4 +618,6 @@ def main():
     st.markdown('</div>', unsafe_allow_html=True)
     
 if __name__ == "__main__":
+    import streamlit as st
+    st.set_page_config(page_title="Veterinary Chatbot", layout="wide")
     main()
