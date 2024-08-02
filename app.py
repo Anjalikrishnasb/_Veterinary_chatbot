@@ -239,19 +239,21 @@ def play_audio(audio_fp):
 
 def speech_to_text():
     recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        warning_placeholder = st.empty()  
-        warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
-        recognizer.adjust_for_ambient_noise(source, duration=1)
-        try:
-           audio = recognizer.listen(source, timeout=3)
-           text = recognizer.recognize_google(audio).lower()
-           warning_placeholder.empty()
-           return text
-        except sr.UnknownValueError:
-            st.error("Sorry, I couldn't understand that.")
-        except sr.RequestError as e:
-            st.error(f"Could not request results; {e}")
+    try:
+        with sr.Microphone() as source:
+            warning_placeholder = st.empty()  
+            warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+            audio = recognizer.listen(source, timeout=3)
+            text = recognizer.recognize_google(audio).lower()
+            warning_placeholder.empty()
+            return text
+    except sr.UnknownValueError:
+        st.error("Sorry, I couldn't understand that.")
+    except sr.RequestError as e:
+        st.error(f"Could not request results; {e}")
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
     return None
 
 faq = {
@@ -336,7 +338,7 @@ def main():
             print(f"Error loading image: {str(e)}")
             return None
     
-    image_path = r"C:\Users\ANJALI\OneDrive\Desktop\_Veterinary_chatbot\images\pet-friendly-chalk-white-icon-on-black-background-vector.jpg"
+    image_path = os.path.join("images","pet-friendly-chalk-white-icon-on-black-background-vector.jpg")
     encoded_image = load_image(image_path)
     
     # Custom CSS for improved styling
@@ -501,11 +503,14 @@ def main():
         send_button = st.button("➤")
 
     if speak_button:
-        recognized_text = speech_to_text()
-        if recognized_text:
-            user_question = recognized_text
-            st.session_state.voice_input = recognized_text
-            st.experimental_rerun()
+        try:
+            recognized_text = speech_to_text()
+            if recognized_text:
+                user_question = recognized_text
+                st.session_state.voice_input = recognized_text
+                st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Error with speech recognition: {str(e)}")
 
     st.session_state.voice_input = ""
 

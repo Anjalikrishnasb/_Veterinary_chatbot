@@ -12,3 +12,4 @@ SpeechRecognition
 pydub
 PyMuPDF
 imagehash
+pyaudio
