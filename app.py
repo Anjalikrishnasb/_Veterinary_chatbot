@@ -1,5 +1,4 @@
 import streamlit as st
-st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.callbacks import StreamingStdOutCallbackHandler
@@ -35,7 +34,7 @@ load_dotenv()
 if not os.getenv("GOOGLE_API_KEY"):
     st.error("Google API Key not found. Please set the GOOGLE_API_KEY environment variable.")
     st.stop()
-    
+
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 
@@ -321,6 +320,7 @@ health_tips = [
 ]
 
 def main():
+    st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
     
     if 'chat_history' not in st.session_state:
         st.session_state['chat_history'] = []
