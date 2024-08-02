@@ -6,3 +6,8 @@ PyPDF2
 faiss-cpu>=1.7.4
 langchain_google_genai
 pillow
+gtts
+SpeechRecognition
+pydub
+PyMuPDF
+imagehash
