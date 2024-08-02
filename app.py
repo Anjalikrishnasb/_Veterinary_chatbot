@@ -1,6 +1,4 @@
 import streamlit as st
-st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
-
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from gtts import gTTS
@@ -8,14 +6,6 @@ import speech_recognition as sr
 from pydub import AudioSegment
 from pydub.playback import play
 from io import BytesIO
-
-# try:
-#     import pyaudio
-#     PYAUDIO_AVAILABLE = True
-# except ImportError:
-#     PYAUDIO_AVAILABLE = False
-#     print("PyAudio is not available. Voice input functionality will be disabled.")
-
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain_community.vectorstores import FAISS
@@ -567,8 +557,6 @@ def main():
             st.error(f"An error occurred with speech recognition: {str(e)}")
             st.info("Speech recognition may not be available in this environment. Please type your question instead.")
 
-    
-
     if send_button or (user_question and user_question != st.session_state.last_processed_question):
             st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
             response_placeholder = st.empty()
@@ -596,7 +584,7 @@ def main():
         with  st.expander(f"**🐰**: {chat['question']}"):
             st.markdown(f"**🤖**: {chat['answer']}")
             if chat['audio']:
-                st.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
+                st.audio(BytesIO(base64.b64decode(chat["audio"])), format="audio/mp3")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -613,7 +601,7 @@ def main():
         with st.sidebar.expander(f"**🐰**: {chat['question']}"):
             st.sidebar.markdown(f"**🤖**: {chat['answer']}")
             if chat['audio']:
-                st.sidebar.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
+                st.sidebar.audio(BytesIO(base64.b64decode(chat["audio"])), format="audio/mp3")
     
     st.markdown('</div>', unsafe_allow_html=True)
     
