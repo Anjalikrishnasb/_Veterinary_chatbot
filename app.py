@@ -9,12 +9,12 @@ from pydub import AudioSegment
 from pydub.playback import play
 from io import BytesIO
 
-try:
-    import pyaudio
-    PYAUDIO_AVAILABLE = True
-except ImportError:
-    PYAUDIO_AVAILABLE = False
-    st.warning("PyAudio is not installed. Voice input functionality will be disabled.")
+# try:
+#     import pyaudio
+#     PYAUDIO_AVAILABLE = True
+# except ImportError:
+#     PYAUDIO_AVAILABLE = False
+#     st.warning("PyAudio is not installed. Voice input functionality will be disabled.")
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
@@ -551,7 +551,7 @@ def main():
     
     with col2:
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
-        speak_button = st.button("🎤",disabled=not PYAUDIO_AVAILABLE)
+        speak_button = st.button("🎤")
     with col3: 
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
         send_button = st.button("➤")
