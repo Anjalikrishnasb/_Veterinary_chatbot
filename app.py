@@ -129,51 +129,44 @@ def extract_text_from_pdf(pdf_path, page_number):
 def process_image(uploaded_file):
     if uploaded_file is not None:
         try:
-            image_bytes = uploaded_file.read()
-            uploaded_image = Image.open(io.BytesIO(image_bytes))
+            uploaded_image = Image.open(uploaded_file)
             uploaded_hash = imagehash.average_hash(uploaded_image)
             
             data_folder = os.path.join(os.getcwd(), "data")
+            st.write(f"Debug: Searching in folder {data_folder}")
             
             if not os.path.exists(data_folder):
                 st.error(f"Error: Folder {data_folder} does not exist")
                 return None, None, None
 
             for filename in os.listdir(data_folder):
-                if filename.lower().endswith(('.pdf', '.jpg', '.jpeg', '.png')):
-                    file_path = os.path.join(data_folder, filename)
+                if filename.lower().endswith('.pdf'):
+                    pdf_path = os.path.join(data_folder, filename)
+                    st.write(f"Debug: Processing PDF {filename}")
                     
-                    if filename.lower().endswith('.pdf'):
-                        with fitz.open(file_path) as doc:
-                            for idx in range(len(doc)):  
-                                page = doc[idx]
-                                for img in page.get_images(full=True):
-                                    xref = img[0]
-                                    base_image = doc.extract_image(xref)
-                                    image = Image.open(io.BytesIO(base_image["image"]))
-                                    
-                                    image_hash = imagehash.average_hash(image)
-                                    hash_diff = uploaded_hash - image_hash
-
-                                    if hash_diff < 15:  
-                                        pdf_text = extract_text_from_pdf(file_path, idx)
-                                        return f"{os.path.splitext(filename)[0]}_image_{idx}", image, pdf_text
-                    else:
-                        image = Image.open(file_path)
-                        image_hash = imagehash.average_hash(image)
-                        hash_diff = uploaded_hash - image_hash
-                        
-                        if hash_diff < 15:
-                            return filename, image, f"Image found in {filename}"
-                        
-            st.warning("No matching image found")
+                    with fitz.open(pdf_path) as doc:
+                        for idx in range(len(doc)):  
+                            page = doc[idx]
+                            images = page.get_images(full=True)
+                            for image_index, img in enumerate(images):
+                                xref = img[0]
+                                base_image = doc.extract_image(xref)
+                                image_bytes = base_image["image"]
+                                image = Image.open(io.BytesIO(image_bytes))
+                                
+                                image_hash = imagehash.average_hash(image)
+                                hash_diff = uploaded_hash - image_hash
+                                
+                                if hash_diff < 15:  
+                                    st.write(f"Debug: Match found in {filename}, image {idx}")
+                                    pdf_text = extract_text_from_pdf(pdf_path, idx)
+                                    return f"{os.path.splitext(filename)[0]}_image_{idx}", image, pdf_text
+            st.write("Debug: No matching image found")
             return None, None, None
         except Exception as e:
             st.error(f"Error processing uploaded image: {str(e)}")
             return None, None, None
     return None, None, None
-                                
-                                
 
 def user_input(user_question, chat_history, image_match=None, image_content=None):
     try:
@@ -513,42 +506,42 @@ def main():
         user_question = st.text_input("Ask me anything related to pet care or the uploaded image!", key="user_input", value=st.session_state.voice_input,  placeholder=get_greeting())
     
     with col2:
-        st.markdown("<p class='button-label'>VOICE</p>", unsafe_allow_html=True)
+        st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
         speak_button = st.button("🎤")
     with col3: 
-        st.markdown("<p class='button-label'>SEND</p>", unsafe_allow_html=True)
+        st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
         send_button = st.button("➤")
 
     if speak_button:
-        with st.spinner("Listening..."):
+        try:
             recognized_text = speech_to_text()
             if recognized_text:
+                user_question = recognized_text
                 st.session_state.voice_input = recognized_text
                 st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Error with speech recognition: {str(e)}")
 
     if send_button or user_question:
-            if user_question:
-                st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
-                response_placeholder = st.empty()
-                full_response = user_input(user_question, 
-                                        st.session_state.chat_history, 
-                                        st.session_state.current_image_match,
-                                        st.session_state.current_image_content)
-                
-                # Display response word by word
-                displayed_response = ""
-                for word in full_response.split():
-                    displayed_response += f" {word}"
-                    response_placeholder.markdown(displayed_response)
-                    time.sleep(0.02)
-                
-                audio_base64 = text_to_speech(full_response)
-                
-                st.session_state.chat_history.append({
-                    "question": user_question,
-                    "answer": full_response.strip(),
-                    "audio": audio_base64
-                })
+            st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
+            response_placeholder = st.empty()
+            full_response = user_input(user_question, 
+                                       st.session_state.chat_history, 
+                                       st.session_state.current_image_match,
+                                       st.session_state.current_image_content)
+            displayed_response = ""
+            for word in full_response.split():
+                displayed_response += f" {word}"
+                response_placeholder.markdown(displayed_response)
+                time.sleep(0.02)
+            
+            audio_base64 = text_to_speech(full_response)
+            
+            st.session_state.chat_history.append({
+                "question": user_question,
+                "answer": full_response.strip(),
+                "audio": audio_base64
+            })
             
     for chat in st.session_state.chat_history:
         with  st.expander(f"**🐰**: {chat['question']}"):
