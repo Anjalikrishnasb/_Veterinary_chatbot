@@ -25,6 +25,14 @@ import imagehash
 import fitz
 import io
 
+is_streamlit_cloud = st.runtime.exists()
+
+if not is_streamlit_cloud:
+    try:
+        import pyaudio
+    except ImportError:
+        st.error("PyAudio is not installed. Please install it to use speech recognition locally.")
+
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
@@ -231,21 +239,28 @@ def play_audio(audio_fp):
         logging.error(f"Error playing audio: {e}")
         st.error(f"Error playing audio. Please check the log for details.")
 
+
+
 def speech_to_text():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        warning_placeholder = st.empty()  
-        warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
-        recognizer.adjust_for_ambient_noise(source, duration=1)
+    if is_streamlit_cloud:
+        st.warning("Speech recognition is not available on Streamlit Cloud. Please type your question instead.")
+        return st.text_input("Enter your question:")
+    else:
+        recognizer = sr.Recognizer()
         try:
-           audio = recognizer.listen(source, timeout=3)
-           text = recognizer.recognize_google(audio).lower()
-           warning_placeholder.empty()
-           return text
+            with sr.Microphone() as source:
+                st.warning("Listening... (Will stop after 3 seconds of silence)")
+                recognizer.adjust_for_ambient_noise(source, duration=1)
+                audio = recognizer.listen(source, timeout=3, phrase_time_limit=5)
+                st.success("Processing speech...")
+                text = recognizer.recognize_google(audio).lower()
+                return text
         except sr.UnknownValueError:
             st.error("Sorry, I couldn't understand that.")
         except sr.RequestError as e:
             st.error(f"Could not request results; {e}")
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
     return None
 
 faq = {
@@ -481,7 +496,6 @@ def main():
     if speak_button:
         recognized_text = speech_to_text()
         if recognized_text:
-            user_question = recognized_text
             st.session_state.voice_input = recognized_text
             st.experimental_rerun()
 
@@ -498,7 +512,10 @@ def main():
                 response_placeholder.markdown(displayed_response)
                 time.sleep(0.02)
             
-            audio_base64 = text_to_speech(full_response)
+            if not is_streamlit_cloud:
+                audio_base64 = text_to_speech(full_response)
+            else:
+                audio_base64 = None
             
             st.session_state.chat_history.append({
                 "question": user_question,
