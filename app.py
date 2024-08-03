@@ -325,11 +325,14 @@ def main():
     st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
     
     def load_image(image_path):
-        with open(image_path, "rb") as image_file:
-             encoded_image = base64.b64encode(image_file.read()).decode()
-        return encoded_image
-    
-    image_path = r"C:\Users\ANJALI\OneDrive\Desktop\_Veterinary_chatbot\pet-friendly-chalk-white-icon-on-black-background-vector.jpg"
+        try:
+            with open(image_path, "rb") as image_file:
+                encoded_image = base64.b64encode(image_file.read()).decode()
+            return encoded_image
+        except FileNotFoundError:
+            st.error(f"Image file not found: {image_path}")
+            return None
+    image_path = "images/pet-friendly-chalk-white-icon-on-black-background-vector.jpg"
     encoded_image = load_image(image_path)
     
     # Custom CSS for improved styling
@@ -428,15 +431,21 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # Header
-    st.markdown(
-        f"""
-        
-        <div class="header">
-        <img src="data:image/jpeg;base64,{encoded_image}" alt="Veterinary Icon"/>
-        <h1>PAWSITIVE</h1>
-    </div>
-    """, unsafe_allow_html=True)
+    if encoded_image:
+        st.markdown(
+            f"""
+            <div class="header">
+            <img src="data:image/jpeg;base64,{encoded_image}" alt="Veterinary Icon"/>
+            <h1>PAWSITIVE</h1>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown(
+            f"""
+            <div class="header">
+            <h1>PAWSITIVE</h1>
+            </div>
+            """, unsafe_allow_html=True)
 
     # Health Tip
     health_tip = random.choice(health_tips)
