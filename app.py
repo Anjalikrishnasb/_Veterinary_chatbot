@@ -246,12 +246,8 @@ def speech_to_text():
     try:
         recognizer = sr.Recognizer()
         with sr.Microphone() as source:
-            warning_placeholder = st.empty()  
-            warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
-            recognizer.adjust_for_ambient_noise(source, duration=1)
+            st.warning("Listening... (Will stop after 3 seconds of silence)")
             audio = recognizer.listen(source, timeout=3)
-            text = recognizer.recognize_google(audio).lower()
-            warning_placeholder.empty()
         text = recognizer.recognize_google(audio).lower()
         return text
     except sr.UnknownValueError:
@@ -524,8 +520,6 @@ def main():
                 st.experimental_rerun()
         except Exception as e:
             st.error(f"Error with speech recognition: {str(e)}")
-
-    st.session_state.voice_input = ""
 
     if send_button or user_question:
             st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
