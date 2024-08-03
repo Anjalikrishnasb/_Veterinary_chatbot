@@ -171,7 +171,7 @@ def process_image(uploaded_file):
 def user_input(user_question, chat_history, image_match=None, image_content=None):
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        new_db = FAISS.load_local("faiss_index", embeddings)
+        new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
         
         recent_context = "\n".join([f"Human: {chat['question']}\nAI: {chat['answer']}" for chat in chat_history[-5:]])
         combined_query = f"{recent_context}\nHuman: {user_question}"
@@ -244,6 +244,7 @@ def play_audio(audio_fp):
 def speech_to_text():
     
     try:
+
         recognizer = sr.Recognizer()
         with sr.Microphone() as source:
             st.warning("Listening... (Will stop after 3 seconds of silence)")
