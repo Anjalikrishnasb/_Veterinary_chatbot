@@ -1,40 +1,31 @@
 import streamlit as st
+import os
+from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.callbacks import StreamingStdOutCallbackHandler
-import os
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.chains.question_answering import load_qa_chain
+from langchain.prompts import PromptTemplate
+from langchain_google_genai import GoogleGenerativeAI
+import google.generativeai as genai
 from gtts import gTTS
 import speech_recognition as sr
 from pydub import AudioSegment
 from pydub.playback import play
 from io import BytesIO
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-import google.generativeai as genai
-from langchain_community.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chains.question_answering import load_qa_chain
-from langchain.prompts import PromptTemplate
-from dotenv import load_dotenv
+import base64
+import logging
 from datetime import datetime
 import random
-import logging
-import pandas as pd
-from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
-import base64
 import re
 import time
 from PIL import Image
-import numpy as np
 import imagehash
 import fitz
 import io
 
 load_dotenv()
-
-if not os.getenv("GOOGLE_API_KEY"):
-    st.error("Google API Key not found. Please set the GOOGLE_API_KEY environment variable.")
-    st.stop()
-
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 
@@ -55,10 +46,9 @@ def get_pdf_text_from_folder(pdf_folder):
         for pdf_file in os.listdir(pdf_folder):
             if pdf_file.endswith(".pdf"):
                 pdf_path = os.path.join(pdf_folder, pdf_file)
-                loader = PyPDFLoader(pdf_path)
-                pages = loader.load_and_split()
-                for page in pages:
-                    text += page.page_content + "\n\n"
+                reader = PdfReader(pdf_path)
+                for page in reader.pages:
+                    text += page.extract_text() + "\n\n"
     except Exception as e:
         logging.error(f"Error reading PDFs from folder {pdf_folder}: {e}")
         st.error(f"Error reading PDFs. Please check the log for details.")
@@ -77,8 +67,7 @@ def get_text_chunks(text):
 def get_vector_store(text_chunks):
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-        vector_store.save_local("faiss_index")
+        vector_store = FAISS.from_texts(text_chunks, embedding=embeddings,allow_dangerous_deserialization=True)
         return vector_store
     except Exception as e:
         logging.error(f"Error creating vector store: {e}")
@@ -104,8 +93,8 @@ def get_conversational_chain():
   
 
     try:
-        model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.6)
-        prompt = PromptTemplate(template=prompt_template, input_variables=["context", "chat_history","image_context", "question"])
+        model = GoogleGenerativeAI(model="gemini-pro", temperature=0.6)
+        prompt = PromptTemplate(template=prompt_template, input_variables=["context", "chat_history", "image_context", "question"])
         chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
         return chain
     except Exception as e:
@@ -171,7 +160,8 @@ def process_image(uploaded_file):
 def user_input(user_question, chat_history, image_match=None, image_content=None):
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
+        new_db = FAISS.load_local("faiss_index", embeddings)
+
         
         recent_context = "\n".join([f"Human: {chat['question']}\nAI: {chat['answer']}" for chat in chat_history[-5:]])
         combined_query = f"{recent_context}\nHuman: {user_question}"
@@ -242,21 +232,20 @@ def play_audio(audio_fp):
         st.error(f"Error playing audio. Please check the log for details.")
 
 def speech_to_text():
-    
-    try:
-
-        recognizer = sr.Recognizer()
-        with sr.Microphone() as source:
-            st.warning("Listening... (Will stop after 3 seconds of silence)")
-            audio = recognizer.listen(source, timeout=3)
-        text = recognizer.recognize_google(audio).lower()
-        return text
-    except sr.UnknownValueError:
-        st.error("Sorry, I couldn't understand that.")
-    except sr.RequestError as e:
-        st.error(f"Could not request results; {e}")
-    except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        warning_placeholder = st.empty()  
+        warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
+        recognizer.adjust_for_ambient_noise(source, duration=1)
+        try:
+           audio = recognizer.listen(source, timeout=3)
+           text = recognizer.recognize_google(audio).lower()
+           warning_placeholder.empty()
+           return text
+        except sr.UnknownValueError:
+            st.error("Sorry, I couldn't understand that.")
+        except sr.RequestError as e:
+            st.error(f"Could not request results; {e}")
     return None
 
 faq = {
@@ -317,33 +306,15 @@ health_tips = [
 ]
 
 def main():
+    
     st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
     
-    if 'chat_history' not in st.session_state:
-        st.session_state['chat_history'] = []
-
-    if 'current_image_match' not in st.session_state:
-        st.session_state['current_image_match'] = None
-    
-    if 'current_image_data' not in st.session_state:
-        st.session_state['current_image_data'] = None
-
-    if 'current_image_content' not in st.session_state:
-        st.session_state['current_image_content'] = None
-    
     def load_image(image_path):
-        try:
-            with open(image_path, "rb") as image_file:
-                return base64.b64encode(image_file.read()).decode()
-        except FileNotFoundError:
-            print(f"Image file not found at path: {image_path}")
-            return None
-        except Exception as e:
-            print(f"Error loading image: {str(e)}")
-            return None
-
-    # In the main function:
-    image_path = os.path.join(os.path.dirname(__file__), "images", "pet-friendly-chalk-white-icon-on-black-background-vector.jpg")
+        with open(image_path, "rb") as image_file:
+             encoded_image = base64.b64encode(image_file.read()).decode()
+        return encoded_image
+    
+    image_path = r"C:\Users\ANJALI\OneDrive\Desktop\_Veterinary_chatbot\pet-friendly-chalk-white-icon-on-black-background-vector.jpg"
     encoded_image = load_image(image_path)
     
     # Custom CSS for improved styling
@@ -442,21 +413,16 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    if encoded_image:
-        st.markdown(
-            f"""
-            <div class="header">
-            <img src="data:image/jpeg;base64,{encoded_image}" alt="Veterinary Icon"/>
-            <h1>PAWSITIVE</h1>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.markdown(
-            f"""
-            <div class="header">
-            <h1>PAWSITIVE</h1>
-            </div>
-            """, unsafe_allow_html=True)
+    # Header
+    st.markdown(
+        f"""
+        
+        <div class="header">
+        <img src="data:image/jpeg;base64,{encoded_image}" alt="Veterinary Icon"/>
+        <h1>PAWSITIVE</h1>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Health Tip
     health_tip = random.choice(health_tips)
     st.markdown(f"""
@@ -513,14 +479,11 @@ def main():
         send_button = st.button("➤")
 
     if speak_button:
-        try:
-            recognized_text = speech_to_text()
-            if recognized_text:
-                user_question = recognized_text
-                st.session_state.voice_input = recognized_text
-                st.experimental_rerun()
-        except Exception as e:
-            st.error(f"Error with speech recognition: {str(e)}")
+        recognized_text = speech_to_text()
+        if recognized_text:
+            user_question = recognized_text
+            st.session_state.voice_input = recognized_text
+            st.experimental_rerun()
 
     if send_button or user_question:
             st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
@@ -546,10 +509,8 @@ def main():
     for chat in st.session_state.chat_history:
         with  st.expander(f"**🐰**: {chat['question']}"):
             st.markdown(f"**🤖**: {chat['answer']}")
-            if chat.get('audio'):
+            if chat['audio']:
                 st.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
-            else:
-                st.warning("Audio conversion failed for this response.")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -572,5 +533,3 @@ def main():
     
 if __name__ == "__main__":
     main()
-            
-    
