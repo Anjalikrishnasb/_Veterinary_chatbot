@@ -242,26 +242,23 @@ def play_audio(audio_fp):
 
 
 def speech_to_text():
-    if is_streamlit_cloud:
-        st.warning("Speech recognition is not available on Streamlit Cloud. Please type your question instead.")
-        return st.text_input("Enter your question:")
-    else:
-        recognizer = sr.Recognizer()
-        try:
-            with sr.Microphone() as source:
-                st.warning("Listening... (Will stop after 3 seconds of silence)")
-                recognizer.adjust_for_ambient_noise(source, duration=1)
-                audio = recognizer.listen(source, timeout=3, phrase_time_limit=5)
-                st.success("Processing speech...")
-                text = recognizer.recognize_google(audio).lower()
-                return text
-        except sr.UnknownValueError:
-            st.error("Sorry, I couldn't understand that.")
-        except sr.RequestError as e:
-            st.error(f"Could not request results; {e}")
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
-    return None
+    recognizer = sr.Recognizer()
+    microphone = sr.Microphone()
+    
+    with microphone as source:
+        st.info("Please speak now...")
+        audio = recognizer.listen(source)
+    
+    try:
+        user_query = recognizer.recognize_google(audio)
+        st.success(f"You said: {user_query}")
+        return user_query
+    except sr.UnknownValueError:
+        st.error("Sorry, I could not understand the audio.")
+        return ""
+    except sr.RequestError as e:
+        st.error(f"Could not request results; {e}")
+        return ""
 
 faq = {
     "What are the vaccination schedules for dogs?": "Vaccinations 💉 typically start at 6-8 weeks of age and continue every 3-4 weeks until 16 weeks old.",
