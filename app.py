@@ -9,6 +9,7 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import GoogleGenerativeAI
 import google.generativeai as genai
+import pyaudio
 from gtts import gTTS
 import speech_recognition as sr
 from pydub import AudioSegment
@@ -32,6 +33,7 @@ if not is_streamlit_cloud:
         import pyaudio
     except ImportError:
         st.error("PyAudio is not installed. Please install it to use speech recognition locally.")
+
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -241,6 +243,7 @@ def play_audio(audio_fp):
 
 
 
+
 def speech_to_text():
     recognizer = sr.Recognizer()
     microphone = sr.Microphone()
@@ -259,7 +262,6 @@ def speech_to_text():
     except sr.RequestError as e:
         st.error(f"Could not request results; {e}")
         return ""
-
 faq = {
     "What are the vaccination schedules for dogs?": "Vaccinations 💉 typically start at 6-8 weeks of age and continue every 3-4 weeks until 16 weeks old.",
     "How often should I take my pet to the vet?": "It's recommended to take your pet to the vet at least once a year for a check-up 🏥.",
