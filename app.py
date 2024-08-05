@@ -32,6 +32,12 @@ import io
 import speech_recognition as sr
 
 load_dotenv()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if not GOOGLE_API_KEY:
+    st.error("Google API Key not found. Please set the GOOGLE_API_KEY environment variable.")
+    st.stop()
+
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 
@@ -73,7 +79,7 @@ def get_text_chunks(text):
     
 def get_vector_store(text_chunks):
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001",google_api_key=GOOGLE_API_KEY)
         vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
         vector_store.save_local("faiss_index")
         return vector_store
@@ -167,7 +173,7 @@ def process_image(uploaded_file):
 
 def user_input(user_question, chat_history, image_match=None, image_content=None):
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001",google_api_key=GOOGLE_API_KEY)
         new_db = FAISS.load_local("faiss_index", embeddings)
         
         recent_context = "\n".join([f"Human: {chat['question']}\nAI: {chat['answer']}" for chat in chat_history[-5:]])
@@ -239,21 +245,25 @@ def play_audio(audio_fp):
         st.error(f"Error playing audio. Please check the log for details.")
 
 def speech_to_text():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        warning_placeholder = st.empty()  
-        warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
-        recognizer.adjust_for_ambient_noise(source, duration=1)
-        try:
-           audio = recognizer.listen(source, timeout=3)
-           st.write("Processing speech...")
-           text = recognizer.recognize_google(audio).lower()
-           warning_placeholder.empty()
-           return text
-        except sr.UnknownValueError:
-            st.error("Sorry, I couldn't understand that.")
-        except sr.RequestError as e:
-            st.error(f"Could not request results; {e}")
+    try:
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            warning_placeholder = st.empty()  
+            warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+            try:
+                audio = recognizer.listen(source, timeout=3)
+                st.write("Processing speech...")
+                text = recognizer.recognize_google(audio).lower()
+                warning_placeholder.empty()
+                return text
+            except sr.UnknownValueError:
+                st.error("Sorry, I couldn't understand that.")
+            except sr.RequestError as e:
+                st.error(f"Could not request results; {e}")
+    except OSError as e:
+        st.error("Error accessing the microphone. This feature may not be available in this environment.")
+        st.info("If you're running this app on a cloud platform, speech recognition might not be supported.")
     return None
 
 faq = {
@@ -314,6 +324,9 @@ health_tips = [
 ]
 
 def main():
+    if not GOOGLE_API_KEY:
+        st.error("Google API Key not found. Please set the GOOGLE_API_KEY environment variable.")
+        return
     
     if 'chat_history' not in st.session_state:
         st.session_state['chat_history'] = []
@@ -501,7 +514,7 @@ def main():
     
     with col2:
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
-        speak_button = st.button("🎤")
+        speak_button = st.button("🎤",disabled=not is_microphone_available())
     with col3: 
         st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
         send_button = st.button("➤")
@@ -560,6 +573,13 @@ def main():
                 st.sidebar.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
+def is_microphone_available():
+    try:
+        sr.Microphone()
+        return True
+    except OSError:
+        return False
+     
 if __name__ == "__main__":
     main()
