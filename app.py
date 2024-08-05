@@ -29,7 +29,7 @@ import numpy as np
 import imagehash
 import fitz
 import io
-import pyaudio
+import speech_recognition as sr
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -246,6 +246,7 @@ def speech_to_text():
         recognizer.adjust_for_ambient_noise(source, duration=1)
         try:
            audio = recognizer.listen(source, timeout=3)
+           st.write("Processing speech...")
            text = recognizer.recognize_google(audio).lower()
            warning_placeholder.empty()
            return text
