@@ -244,6 +244,15 @@ def play_audio(audio_fp):
         logging.error(f"Error playing audio: {e}")
         st.error(f"Error playing audio. Please check the log for details.")
 
+def is_microphone_available():
+    try:
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+        return True
+    except OSError:
+        return False
+    
 def speech_to_text():
     try:
         recognizer = sr.Recognizer()
@@ -251,19 +260,21 @@ def speech_to_text():
             warning_placeholder = st.empty()  
             warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
             recognizer.adjust_for_ambient_noise(source, duration=1)
-            try:
-                audio = recognizer.listen(source, timeout=3)
-                st.write("Processing speech...")
-                text = recognizer.recognize_google(audio).lower()
-                warning_placeholder.empty()
-                return text
-            except sr.UnknownValueError:
-                st.error("Sorry, I couldn't understand that.")
-            except sr.RequestError as e:
-                st.error(f"Could not request results; {e}")
-    except OSError as e:
-        st.error("Error accessing the microphone. This feature may not be available in this environment.")
-        st.info("If you're running this app on a cloud platform, speech recognition might not be supported.")
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
+        
+        st.write("Processing speech...")
+        text = recognizer.recognize_google(audio).lower()
+        warning_placeholder.empty()
+        return text
+    except sr.WaitTimeoutError:
+        st.warning("No speech detected. Please try again.")
+    except sr.UnknownValueError:
+        st.warning("Sorry, I couldn't understand that. Please try again.")
+    except sr.RequestError as e:
+        st.error(f"Could not request results from Google Speech Recognition service; {e}")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+        st.info("Speech recognition may not be available in this environment.")
     return None
 
 faq = {
@@ -573,13 +584,6 @@ def main():
                 st.sidebar.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-
-def is_microphone_available():
-    try:
-        sr.Microphone()
-        return True
-    except OSError:
-        return False
      
 if __name__ == "__main__":
     main()
