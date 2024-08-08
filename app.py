@@ -130,16 +130,14 @@ def process_image(uploaded_file):
             uploaded_hash = imagehash.average_hash(uploaded_image)
             
             data_folder = os.path.join(os.getcwd(), "data")
-            st.write(f"Debug: Searching in folder {data_folder}")
             
             if not os.path.exists(data_folder):
-                st.error(f"Error: Folder {data_folder} does not exist")
+
                 return None, None, None
 
             for filename in os.listdir(data_folder):
                 if filename.lower().endswith('.pdf'):
                     pdf_path = os.path.join(data_folder, filename)
-                    st.write(f"Debug: Processing PDF {filename}")
                     
                     with fitz.open(pdf_path) as doc:
                         for idx in range(len(doc)):  
@@ -155,7 +153,7 @@ def process_image(uploaded_file):
                                 hash_diff = uploaded_hash - image_hash
                                 
                                 if hash_diff < 15:  
-                                    st.write(f"Debug: Match found in {filename}, image {idx}")
+                                    
                                     pdf_text = extract_text_from_pdf(pdf_path, idx)
                                     return f"{os.path.splitext(filename)[0]}_image_{idx}", image, pdf_text
             st.write("Debug: No matching image found")
