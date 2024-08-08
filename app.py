@@ -468,8 +468,6 @@ def main():
             image_match, matched_image,image_content = process_image(uploaded_file)
         if image_match and matched_image and image_content:
             st.warning("This image is similar to an image in my document. The match may not be 100% accurate.", icon="⚠️")
-            time.sleep(3)
-            st.empty()
             st.write(f"Image matched: {image_match}")
             st.session_state.current_image_match = image_match
             st.session_state.current_image_data = matched_image
