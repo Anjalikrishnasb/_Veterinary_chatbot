@@ -1,14 +1,15 @@
 import streamlit as st
-st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
-from PyPDF2 import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.callbacks import StreamingStdOutCallbackHandler
 import os
 from gtts import gTTS
 import speech_recognition as sr
-from pydub import AudioSegment
-from pydub.playback import play
 from io import BytesIO
+import base64
+from PyPDF2 import PdfReader
+from pydub.playback import play
+from pydub import AudioSegment
+from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.callbacks import StreamingStdOutCallbackHandler
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain.vectorstores import FAISS
@@ -19,17 +20,13 @@ from dotenv import load_dotenv
 from datetime import datetime
 import random
 import logging
-import pandas as pd
-from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
-import base64
 import re
 import time
 from PIL import Image
-import numpy as np
 import imagehash
 import fitz
 import io
-import speech_recognition as sr
+import pytz
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -41,6 +38,8 @@ if not GOOGLE_API_KEY:
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 logging.basicConfig(filename='chatbot.log', level=logging.DEBUG)
 
+st.set_page_config(page_title="Veterinary Chatbot | Gemini", layout="wide")
+
 if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
 if 'current_image_match' not in st.session_state:
@@ -49,8 +48,6 @@ if 'current_image_data' not in st.session_state:
     st.session_state['current_image_data'] = None
 if 'current_image_content' not in st.session_state:
     st.session_state['current_image_content'] = None
-if 'voice_input' not in st.session_state:
-    st.session_state.voice_input = ""
 
 def get_pdf_text_from_folder(pdf_folder):
     text = ""
@@ -104,8 +101,6 @@ def get_conversational_chain():
     Human: {question}
     AI: Based on the provided information:
     """
-  
-
     try:
         model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.6)
         prompt = PromptTemplate(template=prompt_template, input_variables=["context", "chat_history","image_context", "question"])
@@ -214,17 +209,22 @@ def format_response(response):
     return response.strip()
 
 def get_greeting():
-    current_hour = datetime.now().hour
-    if current_hour < 12:
-        return "Good morning! How can I help you today?"
-    elif 12 <= current_hour < 18:
-        return "Good afternoon! How can I assist you today?"
-    else:
-        return "Good evening! What can I do for you today?"
+    india_tz = pytz.timezone('Asia/Kolkata')
+    current_time = datetime.now(india_tz)
+    current_hour = current_time.hour
 
+    if 5 <= current_hour < 12:
+        return f"Good morning!  How can I help you today?"
+    elif 12 <= current_hour < 17:
+        return f"Good afternoon!  How can I assist you today?"
+    elif 17 <= current_hour < 21:
+        return f"Good evening!  What can I do for you today?"
+    else:
+        return f"Hello!  How may I assist you at this hour?"
+    
 def text_to_speech(text):
     try:
-        tts = gTTS(text)
+        tts = gTTS(text=text, lang='en')
         audio_fp = BytesIO()
         tts.write_to_fp(audio_fp)
         audio_fp.seek(0)
@@ -243,40 +243,7 @@ def play_audio(audio_fp):
     except Exception as e:
         logging.error(f"Error playing audio: {e}")
         st.error(f"Error playing audio. Please check the log for details.")
-
-def is_microphone_available():
-    try:
-        recognizer = sr.Recognizer()
-        with sr.Microphone() as source:
-            recognizer.adjust_for_ambient_noise(source, duration=1)
-        return True
-    except OSError:
-        return False
     
-def speech_to_text():
-    try:
-        recognizer = sr.Recognizer()
-        with sr.Microphone() as source:
-            warning_placeholder = st.empty()  
-            warning_placeholder.warning("Listening... (Will stop after 3 seconds of silence)")
-            recognizer.adjust_for_ambient_noise(source, duration=1)
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
-        
-        st.write("Processing speech...")
-        text = recognizer.recognize_google(audio).lower()
-        warning_placeholder.empty()
-        return text
-    except sr.WaitTimeoutError:
-        st.warning("No speech detected. Please try again.")
-    except sr.UnknownValueError:
-        st.warning("Sorry, I couldn't understand that. Please try again.")
-    except sr.RequestError as e:
-        st.error(f"Could not request results from Google Speech Recognition service; {e}")
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
-        st.info("Speech recognition may not be available in this environment.")
-    return None
-
 faq = {
     "What are the vaccination schedules for dogs?": "Vaccinations 💉 typically start at 6-8 weeks of age and continue every 3-4 weeks until 16 weeks old.",
     "How often should I take my pet to the vet?": "It's recommended to take your pet to the vet at least once a year for a check-up 🏥.",
@@ -517,51 +484,43 @@ def main():
 
     if st.session_state.current_image_data is not None:
         st.image(st.session_state.current_image_data, caption="Current Image Context", use_column_width=True)
-
-    # User input
-    col1, col2, col3 = st.columns([6,1,1])
-    with col1:
-        user_question = st.text_input("Ask me anything related to pet care or the uploaded image!", key="user_input", value=st.session_state.voice_input,  placeholder=get_greeting())
     
-    with col2:
-        st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
-        speak_button = st.button("🎤",disabled=not is_microphone_available())
-    with col3: 
-        st.markdown("<p class='button-label'>PRESS</p>", unsafe_allow_html=True)
+    # User input section
+    col1, col2 = st.columns([6,1])
+    with col1:
+        user_question = st.text_input("Ask me anything related to pet care or the uploaded image!", key="user_input", placeholder=get_greeting())
+     
+    with col2: 
+        st.markdown("<p class='button-label'>SEND</p>", unsafe_allow_html=True)
         send_button = st.button("➤")
 
-    if speak_button:
-        recognized_text = speech_to_text()
-        if recognized_text:
-            user_question = recognized_text
-            st.session_state.voice_input = recognized_text
-            st.experimental_rerun()
-
-    st.session_state.voice_input = ""
 
     if send_button or user_question:
-            st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
-            response_placeholder = st.empty()
-            full_response = user_input(user_question, 
-                                       st.session_state.chat_history, 
-                                       st.session_state.current_image_match,
-                                       st.session_state.current_image_content)
-            displayed_response = ""
-            for word in full_response.split():
-                displayed_response += f" {word}"
-                response_placeholder.markdown(displayed_response)
-                time.sleep(0.02)
-            
-            audio_base64 = text_to_speech(full_response)
-            
-            st.session_state.chat_history.append({
-                "question": user_question,
-                "answer": full_response.strip(),
-                "audio": audio_base64
-            })
-            
+        st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
+        response_placeholder = st.empty()
+        full_response = user_input(user_question, 
+                                   st.session_state.chat_history, 
+                                   st.session_state.current_image_match,
+                                   st.session_state.current_image_content)
+        displayed_response = ""
+        for word in full_response.split():
+            displayed_response += f" {word}"
+            response_placeholder.markdown(displayed_response)
+            time.sleep(0.05)
+        
+        audio_base64 = text_to_speech(full_response)
+        
+        st.session_state.chat_history.append({
+            "question": user_question,
+            "answer": full_response.strip(),
+            "audio": audio_base64
+        })
+
+        if audio_base64:
+            st.markdown(f'<audio src="data:audio/mp3;base64,{audio_base64}" controls></audio>', unsafe_allow_html=True)
+        
     for chat in st.session_state.chat_history:
-        with  st.expander(f"**🐰**: {chat['question']}"):
+        with st.expander(f"**🐰**: {chat['question']}"):
             st.markdown(f"**🤖**: {chat['answer']}")
             if chat['audio']:
                 st.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
@@ -569,8 +528,6 @@ def main():
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Sidebar
-    st.markdown('<div class="chat-sidebar">', unsafe_allow_html=True)
-    
     st.sidebar.title("FAQ")
     question = st.sidebar.selectbox("Select a question:", list(faq.keys()))
     if question:
@@ -584,6 +541,6 @@ def main():
                 st.sidebar.markdown(f'<audio src="data:audio/mp3;base64,{chat["audio"]}" controls></audio>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-     
+
 if __name__ == "__main__":
     main()
