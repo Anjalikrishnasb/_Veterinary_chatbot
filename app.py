@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 from gtts import gTTS
-import speech_recognition as sr
 from io import BytesIO
 import base64
 from PyPDF2 import PdfReader
