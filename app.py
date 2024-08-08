@@ -305,17 +305,6 @@ def main():
         st.error("Google API Key not found. Please set the GOOGLE_API_KEY environment variable.")
         return
     
-    if 'chat_history' not in st.session_state:
-        st.session_state['chat_history'] = []
-
-    if 'current_image_match' not in st.session_state:
-        st.session_state['current_image_match'] = None
-    
-    if 'current_image_data' not in st.session_state:
-        st.session_state['current_image_data'] = None
-
-    if 'current_image_content' not in st.session_state:
-        st.session_state['current_image_content'] = None
     
     def load_image(image_path):
         try:
@@ -491,31 +480,28 @@ def main():
         st.markdown("<p class='button-label'>SEND</p>", unsafe_allow_html=True)
         send_button = st.button("➤")
 
+    if send_button:
+        if user_question:
+            st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
+            response_placeholder = st.empty()
+            full_response = user_input(user_question, 
+                                       st.session_state.chat_history, 
+                                       st.session_state.current_image_match,
+                                       st.session_state.current_image_content)
+            displayed_response = ""
+            for word in full_response.split():
+                displayed_response += f" {word}"
+                response_placeholder.markdown(displayed_response)
+                time.sleep(0.05)
+            
+            audio_base64 = text_to_speech(full_response)
+            
+            st.session_state.chat_history.append({
+                "question": user_question,
+                "answer": full_response.strip(),
+                "audio": audio_base64
+            })
 
-    if send_button or user_question:
-        st.markdown("<h3>Response:</h3>", unsafe_allow_html=True)
-        response_placeholder = st.empty()
-        full_response = user_input(user_question, 
-                                   st.session_state.chat_history, 
-                                   st.session_state.current_image_match,
-                                   st.session_state.current_image_content)
-        displayed_response = ""
-        for word in full_response.split():
-            displayed_response += f" {word}"
-            response_placeholder.markdown(displayed_response)
-            time.sleep(0.05)
-        
-        audio_base64 = text_to_speech(full_response)
-        
-        st.session_state.chat_history.append({
-            "question": user_question,
-            "answer": full_response.strip(),
-            "audio": audio_base64
-        })
-
-        if audio_base64:
-            st.markdown(f'<audio src="data:audio/mp3;base64,{audio_base64}" controls></audio>', unsafe_allow_html=True)
-        
     for chat in st.session_state.chat_history:
         with st.expander(f"**🐰**: {chat['question']}"):
             st.markdown(f"**🤖**: {chat['answer']}")
